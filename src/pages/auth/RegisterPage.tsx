@@ -178,7 +178,14 @@ export function RegisterPage() {
               type="submit"
               fullWidth
               loading={loading}
-              disabled={!termsAccepted}
+              disabled={
+                !agencyName.trim() ||
+                !fullName.trim() ||
+                !email.trim() ||
+                !password ||
+                !confirmPassword ||
+                !termsAccepted
+              }
               className="mt-6"
             >
               Create Agency Account

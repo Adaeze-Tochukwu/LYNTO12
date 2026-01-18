@@ -53,12 +53,15 @@ The symptom scoring and risk classification features (green, amber, red) are dec
 - Are indicators only and must be validated by qualified healthcare professionals
 - May not detect all health concerns or emergencies
 
-### 5.3 Professional Responsibility
+### 5.3 Regulatory Position
+The Service is not classified as a medical device under current UK medical device regulations. It is intended solely as a decision-support and documentation tool for care professionals. Users remain fully responsible for clinical judgment, escalation decisions, and compliance with applicable healthcare regulations and professional standards.
+
+### 5.4 Professional Responsibility
 - All clinical decisions remain the sole responsibility of qualified healthcare professionals
 - Users must exercise their own professional judgment when interpreting observations
 - The Service does not replace proper clinical assessment, training, or supervision
 
-### 5.4 Medical Emergencies
+### 5.5 Medical Emergencies
 **IN CASE OF A MEDICAL EMERGENCY, CONTACT EMERGENCY SERVICES IMMEDIATELY (999, 112, 911, OR YOUR LOCAL EMERGENCY NUMBER).** Do not rely on the Service for emergency situations.
 
 ## 6. User Responsibilities
@@ -133,19 +136,11 @@ We may suspend access to the Service for maintenance, updates, or improvements. 
 
 ## 11. Limitation of Liability
 
-### 11.1 Disclaimer of Warranties
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SERVICE IS PROVIDED WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+To the maximum extent permitted by law, the Service is provided on an "as is" and "as available" basis without warranties of any kind.
 
-### 11.2 Limitation of Damages
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SERVICE OWNER SHALL NOT BE LIABLE FOR:
-- Any indirect, incidental, special, consequential, or punitive damages
-- Loss of data, revenue, profits, or business opportunities
-- Clinical outcomes, patient harm, or healthcare decisions made using the Service
-- Actions or omissions of users or third parties
-- Service interruptions or data loss
+The Service owner shall not be liable for any indirect, incidental, special, consequential, or exemplary damages, including but not limited to loss of data, clinical outcomes, or healthcare decisions made using the Service.
 
-### 11.3 Healthcare Decisions
-YOU ACKNOWLEDGE THAT THE SERVICE OWNER IS NOT RESPONSIBLE FOR ANY HEALTHCARE DECISIONS OR CLINICAL OUTCOMES. ALL SUCH DECISIONS ARE THE SOLE RESPONSIBILITY OF THE QUALIFIED HEALTHCARE PROFESSIONALS USING THE SERVICE.
+Nothing in these Terms limits liability for death or personal injury caused by negligence, fraud, or any other liability which cannot be excluded under applicable law.
 
 ## 12. Indemnification
 
