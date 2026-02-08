@@ -101,7 +101,7 @@ export function VisitEntryPage() {
 
     setSaving(true)
     try {
-      const entry = createVisitEntry(
+      const entry = await createVisitEntry(
         client.id,
         user.id,
         agency.id,
@@ -109,12 +109,14 @@ export function VisitEntryPage() {
         vitals,
         note
       )
-      setResult({
-        score: entry.score,
-        riskLevel: entry.riskLevel,
-        reasons: entry.reasons,
-      })
-      handleNext()
+      if (entry) {
+        setResult({
+          score: entry.score,
+          riskLevel: entry.riskLevel,
+          reasons: entry.reasons,
+        })
+        handleNext()
+      }
     } finally {
       setSaving(false)
     }

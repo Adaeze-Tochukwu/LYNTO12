@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import type { RiskLevel } from '@/types'
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'outline'
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'outline' | 'secondary' | 'info'
   size?: 'sm' | 'md'
 }
 
@@ -19,6 +19,8 @@ const Badge = ({
     warning: 'bg-risk-amber-light text-amber-800',
     danger: 'bg-risk-red-light text-red-800',
     outline: 'border border-slate-200 text-slate-600 bg-white',
+    secondary: 'bg-slate-200 text-slate-600',
+    info: 'bg-sky-100 text-sky-800',
   }
 
   const sizes = {

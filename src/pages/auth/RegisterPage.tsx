@@ -61,9 +61,11 @@ export function RegisterPage() {
     setLoading(true)
 
     try {
-      const success = await registerAgency(agencyName, fullName, email, password)
-      if (success) {
+      const result = await registerAgency(agencyName, fullName, email, password)
+      if (result.success) {
         navigate('/manager')
+      } else {
+        setErrors({ form: result.error || 'Registration failed. Please try again.' })
       }
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' })

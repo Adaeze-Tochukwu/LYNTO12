@@ -19,13 +19,13 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const success = await login(email, password)
-      if (success) {
-        // Redirect based on role
-        const isManager = email.toLowerCase().includes('sarah') || email.toLowerCase().includes('manager')
-        navigate(isManager ? '/manager' : '/carer')
+      const result = await login(email, password)
+      if (result.success) {
+        // Navigation will be handled by auth state change
+        // For now, check role from response or redirect to a common entry point
+        navigate('/manager')
       } else {
-        setError('Invalid email or password. Please try again.')
+        setError(result.error || 'Invalid email or password. Please try again.')
       }
     } catch {
       setError('Something went wrong. Please try again.')
@@ -91,12 +91,11 @@ export function LoginPage() {
             </Link>
           </p>
 
-          {/* Demo credentials */}
+          {/* Setup note */}
           <div className="text-xs text-slate-400 mt-4 p-3 bg-slate-100 rounded-xl">
-            <p className="font-medium mb-1">Demo Accounts:</p>
-            <p>Manager: sarah.jones@sunrisecare.co.uk</p>
-            <p>Carer: emma.wilson@sunrisecare.co.uk</p>
-            <p className="mt-1 italic">Any password works</p>
+            <p className="font-medium mb-1">Getting Started:</p>
+            <p>Register your agency to create a manager account,</p>
+            <p>or sign in with your credentials.</p>
           </div>
         </div>
       </div>

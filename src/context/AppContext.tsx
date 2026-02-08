@@ -2,9 +2,20 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   useCallback,
   type ReactNode,
 } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from './AuthContext'
+import { getSymptomById } from '@/data/symptoms'
+import {
+  dbClientToClient,
+  dbUserToCarer,
+  dbVisitEntryToVisitEntry,
+  dbAlertToAlert,
+  dbCorrectionNoteToCorrectionNote,
+} from '@/lib/converters'
 import type {
   Client,
   Carer,
@@ -15,16 +26,7 @@ import type {
   RiskLevel,
   ClientDeactivationReason,
   CarerDeactivationReason,
-  CorrectionNote,
 } from '@/types'
-import {
-  mockClients,
-  mockCarers,
-  mockVisitEntries,
-  mockAlerts,
-} from '@/data/mockData'
-import { getSymptomById } from '@/data/symptoms'
-import { generateId } from '@/lib/utils'
 
 interface AppContextType {
   // Data
@@ -32,23 +34,27 @@ interface AppContextType {
   carers: Carer[]
   visitEntries: VisitEntry[]
   alerts: Alert[]
+  isLoading: boolean
+
+  // Refresh data
+  refreshData: () => Promise<void>
 
   // Client actions
-  addClient: (displayName: string, internalReference?: string) => Client
+  addClient: (displayName: string, internalReference?: string) => Promise<Client | null>
   updateClientStatus: (
     clientId: string,
     status: 'active' | 'inactive',
     reason?: ClientDeactivationReason,
     note?: string
-  ) => void
-  assignCarerToClient: (clientId: string, carerId: string) => void
-  unassignCarerFromClient: (clientId: string, carerId: string) => void
+  ) => Promise<void>
+  assignCarerToClient: (clientId: string, carerId: string) => Promise<void>
+  unassignCarerFromClient: (clientId: string, carerId: string) => Promise<void>
   getClientById: (id: string) => Client | undefined
   getClientsForCarer: (carerId: string) => Client[]
 
   // Carer actions
-  addCarer: (fullName: string, email: string) => Carer
-  deactivateCarer: (carerId: string, reason: CarerDeactivationReason) => void
+  addCarer: (fullName: string, email: string) => Promise<Carer | null>
+  deactivateCarer: (carerId: string, reason: CarerDeactivationReason) => Promise<void>
   getCarerById: (id: string) => Carer | undefined
   getActiveCarers: () => Carer[]
 
@@ -60,8 +66,8 @@ interface AppContextType {
     selectedSymptomIds: string[],
     vitals: Vitals,
     note: string
-  ) => VisitEntry
-  addCorrectionNote: (visitEntryId: string, carerId: string, text: string) => void
+  ) => Promise<VisitEntry | null>
+  addCorrectionNote: (visitEntryId: string, carerId: string, text: string) => Promise<void>
   getVisitEntriesForClient: (clientId: string) => VisitEntry[]
   getVisitEntryById: (id: string) => VisitEntry | undefined
 
@@ -75,7 +81,7 @@ interface AppContextType {
     managerId: string,
     actionTaken: AlertActionTaken,
     note?: string
-  ) => void
+  ) => Promise<void>
   getAlertById: (id: string) => Alert | undefined
   getUnreviewedCount: (agencyId: string) => number
 }
@@ -83,35 +89,157 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>(mockClients)
-  const [carers, setCarers] = useState<Carer[]>(mockCarers)
-  const [visitEntries, setVisitEntries] = useState<VisitEntry[]>(mockVisitEntries)
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts)
+  const { agency } = useAuth()
+  const [clients, setClients] = useState<Client[]>([])
+  const [carers, setCarers] = useState<Carer[]>([])
+  const [visitEntries, setVisitEntries] = useState<VisitEntry[]>([])
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch all data for the agency
+  const refreshData = useCallback(async () => {
+    if (!agency) {
+      setClients([])
+      setCarers([])
+      setVisitEntries([])
+      setAlerts([])
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Fetch clients
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('agency_id', agency.id)
+        .order('created_at', { ascending: false })
+
+      if (clientsData) {
+        setClients(clientsData.map(dbClientToClient))
+      }
+
+      // Fetch carers with their assignments
+      const { data: carersData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('agency_id', agency.id)
+        .eq('role', 'carer')
+        .order('created_at', { ascending: false })
+
+      if (carersData) {
+        // Fetch assignments for each carer
+        const carersWithAssignments = await Promise.all(
+          carersData.map(async (carer) => {
+            const { data: assignments } = await supabase
+              .from('carer_client_assignments')
+              .select('client_id')
+              .eq('carer_id', carer.id)
+
+            const assignedClientIds = assignments?.map((a) => a.client_id) || []
+            return dbUserToCarer(carer, assignedClientIds)
+          })
+        )
+        setCarers(carersWithAssignments)
+      }
+
+      // Fetch visit entries with correction notes
+      const { data: visitsData } = await supabase
+        .from('visit_entries')
+        .select('*')
+        .eq('agency_id', agency.id)
+        .order('created_at', { ascending: false })
+
+      if (visitsData) {
+        // Fetch correction notes for each visit
+        const visitsWithNotes = await Promise.all(
+          visitsData.map(async (visit) => {
+            const { data: notes } = await supabase
+              .from('correction_notes')
+              .select('*')
+              .eq('visit_entry_id', visit.id)
+              .order('created_at', { ascending: true })
+
+            return dbVisitEntryToVisitEntry(visit, notes || undefined)
+          })
+        )
+        setVisitEntries(visitsWithNotes)
+      }
+
+      // Fetch alerts
+      const { data: alertsData } = await supabase
+        .from('alerts')
+        .select('*')
+        .eq('agency_id', agency.id)
+        .order('created_at', { ascending: false })
+
+      if (alertsData) {
+        setAlerts(alertsData.map(dbAlertToAlert))
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [agency])
+
+  // Fetch data when agency changes
+  useEffect(() => {
+    refreshData()
+  }, [refreshData])
 
   // Client actions
   const addClient = useCallback(
-    (displayName: string, internalReference?: string): Client => {
-      const newClient: Client = {
-        id: `client-${generateId()}`,
-        displayName,
-        internalReference,
-        agencyId: 'agency-1', // In real app, get from auth context
-        status: 'active',
-        createdAt: new Date().toISOString(),
+    async (displayName: string, internalReference?: string): Promise<Client | null> => {
+      if (!agency) return null
+
+      const { data, error } = await supabase
+        .from('clients')
+        .insert({
+          display_name: displayName,
+          internal_reference: internalReference,
+          agency_id: agency.id,
+          status: 'active',
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding client:', error)
+        return null
       }
-      setClients((prev) => [...prev, newClient])
+
+      const newClient = dbClientToClient(data)
+      setClients((prev) => [newClient, ...prev])
       return newClient
     },
-    []
+    [agency]
   )
 
   const updateClientStatus = useCallback(
-    (
+    async (
       clientId: string,
       status: 'active' | 'inactive',
       reason?: ClientDeactivationReason,
       note?: string
     ) => {
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          status,
+          deactivation_reason: status === 'inactive' ? reason : null,
+          deactivation_note: status === 'inactive' ? note : null,
+          deactivated_at: status === 'inactive' ? new Date().toISOString() : null,
+        })
+        .eq('id', clientId)
+
+      if (error) {
+        console.error('Error updating client:', error)
+        return
+      }
+
       setClients((prev) =>
         prev.map((c) =>
           c.id === clientId
@@ -129,7 +257,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const assignCarerToClient = useCallback((clientId: string, carerId: string) => {
+  const assignCarerToClient = useCallback(async (clientId: string, carerId: string) => {
+    const { error } = await supabase.from('carer_client_assignments').insert({
+      carer_id: carerId,
+      client_id: clientId,
+    })
+
+    if (error) {
+      console.error('Error assigning carer:', error)
+      return
+    }
+
     setCarers((prev) =>
       prev.map((c) =>
         c.id === carerId && !c.assignedClientIds.includes(clientId)
@@ -139,14 +277,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const unassignCarerFromClient = useCallback((clientId: string, carerId: string) => {
+  const unassignCarerFromClient = useCallback(async (clientId: string, carerId: string) => {
+    const { error } = await supabase
+      .from('carer_client_assignments')
+      .delete()
+      .eq('carer_id', carerId)
+      .eq('client_id', clientId)
+
+    if (error) {
+      console.error('Error unassigning carer:', error)
+      return
+    }
+
     setCarers((prev) =>
       prev.map((c) =>
         c.id === carerId
-          ? {
-              ...c,
-              assignedClientIds: c.assignedClientIds.filter((id) => id !== clientId),
-            }
+          ? { ...c, assignedClientIds: c.assignedClientIds.filter((id) => id !== clientId) }
           : c
       )
     )
@@ -169,23 +315,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   // Carer actions
-  const addCarer = useCallback((fullName: string, email: string): Carer => {
-    const newCarer: Carer = {
-      id: `carer-${generateId()}`,
-      email,
-      fullName,
-      role: 'carer',
-      status: 'pending',
-      agencyId: 'agency-1', // In real app, get from auth context
-      createdAt: new Date().toISOString(),
-      assignedClientIds: [],
-    }
-    setCarers((prev) => [...prev, newCarer])
-    return newCarer
-  }, [])
+  const addCarer = useCallback(
+    async (fullName: string, email: string): Promise<Carer | null> => {
+      if (!agency) return null
+
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          email,
+          full_name: fullName,
+          role: 'carer',
+          status: 'pending',
+          agency_id: agency.id,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding carer:', error)
+        return null
+      }
+
+      const newCarer = dbUserToCarer(data, [])
+      setCarers((prev) => [newCarer, ...prev])
+      return newCarer
+    },
+    [agency]
+  )
 
   const deactivateCarer = useCallback(
-    (carerId: string, reason: CarerDeactivationReason) => {
+    async (carerId: string, reason: CarerDeactivationReason) => {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          status: 'inactive',
+          deactivation_reason: reason,
+          deactivated_at: new Date().toISOString(),
+        })
+        .eq('id', carerId)
+
+      if (error) {
+        console.error('Error deactivating carer:', error)
+        return
+      }
+
       setCarers((prev) =>
         prev.map((c) =>
           c.id === carerId
@@ -279,65 +452,87 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Visit entry actions
   const createVisitEntry = useCallback(
-    (
+    async (
       clientId: string,
       carerId: string,
       agencyId: string,
       selectedSymptomIds: string[],
       vitals: Vitals,
       note: string
-    ): VisitEntry => {
+    ): Promise<VisitEntry | null> => {
       const { score, riskLevel, reasons } = calculateRisk(selectedSymptomIds, vitals)
 
-      const newEntry: VisitEntry = {
-        id: `visit-${generateId()}`,
-        clientId,
-        carerId,
-        agencyId,
-        selectedSymptomIds,
-        vitals,
-        note,
-        score,
-        riskLevel,
-        reasons,
-        createdAt: new Date().toISOString(),
+      const { data, error } = await supabase
+        .from('visit_entries')
+        .insert({
+          client_id: clientId,
+          carer_id: carerId,
+          agency_id: agencyId,
+          selected_symptom_ids: selectedSymptomIds,
+          temperature: vitals.temperature,
+          pulse: vitals.pulse,
+          systolic_bp: vitals.systolicBp,
+          diastolic_bp: vitals.diastolicBp,
+          oxygen_saturation: vitals.oxygenSaturation,
+          respiratory_rate: vitals.respiratoryRate,
+          note,
+          score,
+          risk_level: riskLevel,
+          reasons,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating visit entry:', error)
+        return null
       }
 
-      setVisitEntries((prev) => [...prev, newEntry])
+      const newEntry = dbVisitEntryToVisitEntry(data)
 
-      // Create alert if amber or red
+      // Alert is auto-created by database trigger for amber/red
+      // Refresh to get the new alert
       if (riskLevel === 'amber' || riskLevel === 'red') {
-        const newAlert: Alert = {
-          id: `alert-${generateId()}`,
-          visitEntryId: newEntry.id,
-          clientId,
-          carerId,
-          agencyId,
-          riskLevel,
-          isReviewed: false,
-          createdAt: new Date().toISOString(),
+        const { data: newAlertData } = await supabase
+          .from('alerts')
+          .select('*')
+          .eq('visit_entry_id', data.id)
+          .single()
+
+        if (newAlertData) {
+          setAlerts((prev) => [dbAlertToAlert(newAlertData), ...prev])
         }
-        setAlerts((prev) => [...prev, newAlert])
       }
 
+      setVisitEntries((prev) => [newEntry, ...prev])
       return newEntry
     },
     []
   )
 
   const addCorrectionNote = useCallback(
-    (visitEntryId: string, carerId: string, text: string) => {
-      const note: CorrectionNote = {
-        id: `note-${generateId()}`,
-        text,
-        carerId,
-        createdAt: new Date().toISOString(),
+    async (visitEntryId: string, carerId: string, text: string) => {
+      const { data, error } = await supabase
+        .from('correction_notes')
+        .insert({
+          visit_entry_id: visitEntryId,
+          carer_id: carerId,
+          text,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding correction note:', error)
+        return
       }
+
+      const newNote = dbCorrectionNoteToCorrectionNote(data)
 
       setVisitEntries((prev) =>
         prev.map((v) =>
           v.id === visitEntryId
-            ? { ...v, correctionNotes: [...(v.correctionNotes || []), note] }
+            ? { ...v, correctionNotes: [...(v.correctionNotes || []), newNote] }
             : v
         )
       )
@@ -360,10 +555,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Alert actions
   const getAlertsByFilter = useCallback(
-    (
-      filter: 'unreviewed' | 'reviewed' | 'amber' | 'red' | 'all',
-      agencyId: string
-    ) => {
+    (filter: 'unreviewed' | 'reviewed' | 'amber' | 'red' | 'all', agencyId: string) => {
       const agencyAlerts = alerts
         .filter((a) => a.agencyId === agencyId)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -386,12 +578,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const reviewAlert = useCallback(
-    (
-      alertId: string,
-      managerId: string,
-      actionTaken: AlertActionTaken,
-      note?: string
-    ) => {
+    async (alertId: string, managerId: string, actionTaken: AlertActionTaken, note?: string) => {
+      const { error } = await supabase
+        .from('alerts')
+        .update({
+          is_reviewed: true,
+          reviewed_by: managerId,
+          reviewed_at: new Date().toISOString(),
+          action_taken: actionTaken,
+          manager_note: note,
+        })
+        .eq('id', alertId)
+
+      if (error) {
+        console.error('Error reviewing alert:', error)
+        return
+      }
+
       setAlerts((prev) =>
         prev.map((a) =>
           a.id === alertId
@@ -410,14 +613,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const getAlertById = useCallback(
-    (id: string) => alerts.find((a) => a.id === id),
-    [alerts]
-  )
+  const getAlertById = useCallback((id: string) => alerts.find((a) => a.id === id), [alerts])
 
   const getUnreviewedCount = useCallback(
-    (agencyId: string) =>
-      alerts.filter((a) => a.agencyId === agencyId && !a.isReviewed).length,
+    (agencyId: string) => alerts.filter((a) => a.agencyId === agencyId && !a.isReviewed).length,
     [alerts]
   )
 
@@ -426,6 +625,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     carers,
     visitEntries,
     alerts,
+    isLoading,
+    refreshData,
     addClient,
     updateClientStatus,
     assignCarerToClient,
