@@ -9,6 +9,8 @@ import type {
   Alert,
   CorrectionNote,
   PlatformAdmin,
+  AgencyWithStats,
+  ActivityLogEntry,
   Vitals,
 } from '@/types'
 import type {
@@ -19,6 +21,8 @@ import type {
   Alert as DbAlert,
   CorrectionNote as DbCorrectionNote,
   PlatformAdmin as DbPlatformAdmin,
+  AgencyStats as DbAgencyStats,
+  ActivityLog as DbActivityLog,
 } from './database.types'
 
 // User converter
@@ -144,5 +148,41 @@ export function dbPlatformAdminToPlatformAdmin(dbAdmin: DbPlatformAdmin): Platfo
     lastLoginAt: dbAdmin.last_login_at || undefined,
     deactivatedAt: dbAdmin.deactivated_at || undefined,
     deactivationReason: dbAdmin.deactivation_reason || undefined,
+  }
+}
+
+// Agency Stats converter (from agency_stats view)
+export function dbAgencyStatsToAgencyWithStats(dbStats: DbAgencyStats): AgencyWithStats {
+  return {
+    id: dbStats.id,
+    name: dbStats.name,
+    createdAt: dbStats.created_at,
+    managerId: '',
+    status: dbStats.status,
+    contactEmail: dbStats.contact_email || '',
+    contactName: dbStats.contact_name || '',
+    totalCarers: dbStats.total_carers,
+    activeCarers: dbStats.active_carers,
+    totalClients: dbStats.total_clients,
+    activeClients: dbStats.active_clients,
+    totalAlerts: dbStats.total_alerts,
+    unreviewedAlerts: dbStats.unreviewed_alerts,
+    lastActivityAt: dbStats.last_activity_at || undefined,
+  }
+}
+
+// Activity Log converter
+export function dbActivityLogToActivityLogEntry(dbLog: DbActivityLog): ActivityLogEntry {
+  return {
+    id: dbLog.id,
+    eventType: dbLog.event_type,
+    agencyId: dbLog.agency_id || undefined,
+    agencyName: dbLog.agency_name || undefined,
+    entityId: dbLog.entity_id || undefined,
+    entityName: dbLog.entity_name || undefined,
+    performedBy: dbLog.performed_by,
+    performedByName: dbLog.performed_by_name,
+    reason: dbLog.reason || undefined,
+    timestamp: dbLog.timestamp,
   }
 }

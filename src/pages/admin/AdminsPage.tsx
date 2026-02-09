@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, Button, Badge } from '@/components/ui'
 import { useAdmin, useAuth } from '@/context/AuthContext'
-import { mockPlatformAdmins } from '@/data/mockData'
+import { useAdminData } from '@/context/AdminContext'
 import {
   Shield,
   LogOut,
@@ -12,12 +12,14 @@ import {
   Eye,
   Mail,
   Calendar,
+  Loader2,
 } from 'lucide-react'
 import type { AdminRole, UserStatus } from '@/types'
 
 export function AdminsPage() {
   const admin = useAdmin()
   const { logout, isPrimaryAdmin } = useAuth()
+  const { admins, isLoading } = useAdminData()
   const [showInviteModal, setShowInviteModal] = useState(false)
 
   const getStatusBadge = (status: UserStatus) => {
@@ -80,8 +82,8 @@ export function AdminsPage() {
     })
   }
 
-  const activeAdmins = mockPlatformAdmins.filter((a) => a.status === 'active')
-  const inactiveAdmins = mockPlatformAdmins.filter((a) => a.status === 'inactive')
+  const activeAdmins = admins.filter((a) => a.status === 'active')
+  const inactiveAdmins = admins.filter((a) => a.status === 'inactive')
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -143,7 +145,7 @@ export function AdminsPage() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">
-            Platform Admins ({mockPlatformAdmins.length})
+            Platform Admins ({admins.length})
           </h2>
           {isPrimaryAdmin && (
             <Button
@@ -156,128 +158,136 @@ export function AdminsPage() {
           )}
         </div>
 
-        {/* Active Admins */}
-        <div className="mb-8">
-          <h3 className="text-sm font-medium text-slate-400 mb-3">
-            Active ({activeAdmins.length})
-          </h3>
-          <div className="space-y-3">
-            {activeAdmins.map((adminUser) => (
-              <Card
-                key={adminUser.id}
-                className="bg-slate-800 border-slate-700 p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                      {adminUser.adminRole === 'primary_admin' ? (
-                        <Crown className="w-6 h-6 text-amber-400" />
-                      ) : (
-                        <Shield className="w-6 h-6 text-indigo-400" />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Active Admins */}
+            <div className="mb-8">
+              <h3 className="text-sm font-medium text-slate-400 mb-3">
+                Active ({activeAdmins.length})
+              </h3>
+              <div className="space-y-3">
+                {activeAdmins.map((adminUser) => (
+                  <Card
+                    key={adminUser.id}
+                    className="bg-slate-800 border-slate-700 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                          {adminUser.adminRole === 'primary_admin' ? (
+                            <Crown className="w-6 h-6 text-amber-400" />
+                          ) : (
+                            <Shield className="w-6 h-6 text-indigo-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-white">
+                              {adminUser.fullName}
+                            </h3>
+                            {getRoleBadge(adminUser.adminRole)}
+                            {getStatusBadge(adminUser.status)}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {adminUser.email}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Joined {formatDate(adminUser.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Last login: {formatDateTime(adminUser.lastLoginAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isPrimaryAdmin && adminUser.adminRole !== 'primary_admin' && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-600/30"
+                          >
+                            Deactivate
+                          </Button>
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-white">
-                          {adminUser.fullName}
-                        </h3>
-                        {getRoleBadge(adminUser.adminRole)}
-                        {getStatusBadge(adminUser.status)}
-                      </div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          {adminUser.email}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Joined {formatDate(adminUser.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Last login: {formatDateTime(adminUser.lastLoginAt)}
-                      </p>
-                    </div>
-                  </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
 
-                  {isPrimaryAdmin && adminUser.adminRole !== 'primary_admin' && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-600/30"
-                      >
-                        Deactivate
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
+            {/* Inactive Admins */}
+            {inactiveAdmins.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-slate-400 mb-3">
+                  Inactive ({inactiveAdmins.length})
+                </h3>
+                <div className="space-y-3">
+                  {inactiveAdmins.map((adminUser) => (
+                    <Card
+                      key={adminUser.id}
+                      className="bg-slate-800/50 border-slate-700 p-4 opacity-75"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center">
+                            <Shield className="w-6 h-6 text-slate-500" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-slate-300">
+                                {adminUser.fullName}
+                              </h3>
+                              {getRoleBadge(adminUser.adminRole)}
+                              {getStatusBadge(adminUser.status)}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {adminUser.email}
+                              </span>
+                            </div>
+                            {adminUser.deactivationReason && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                Deactivated: {adminUser.deactivationReason} on{' '}
+                                {formatDate(adminUser.deactivatedAt || '')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-        {/* Inactive Admins */}
-        {inactiveAdmins.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-slate-400 mb-3">
-              Inactive ({inactiveAdmins.length})
-            </h3>
-            <div className="space-y-3">
-              {inactiveAdmins.map((adminUser) => (
-                <Card
-                  key={adminUser.id}
-                  className="bg-slate-800/50 border-slate-700 p-4 opacity-75"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center">
-                        <Shield className="w-6 h-6 text-slate-500" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-300">
-                            {adminUser.fullName}
-                          </h3>
-                          {getRoleBadge(adminUser.adminRole)}
-                          {getStatusBadge(adminUser.status)}
-                        </div>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {adminUser.email}
-                          </span>
-                        </div>
-                        {adminUser.deactivationReason && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Deactivated: {adminUser.deactivationReason} on{' '}
-                            {formatDate(adminUser.deactivatedAt || '')}
-                          </p>
+                        {isPrimaryAdmin && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="bg-green-600/20 hover:bg-green-600/30 text-green-400 border-green-600/30"
+                          >
+                            Reactivate
+                          </Button>
                         )}
                       </div>
-                    </div>
-
-                    {isPrimaryAdmin && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="bg-green-600/20 hover:bg-green-600/30 text-green-400 border-green-600/30"
-                      >
-                        Reactivate
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Invite Modal Placeholder */}

@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Card, Button, Badge } from '@/components/ui'
 import { useAdmin, useAuth } from '@/context/AuthContext'
-import { getAgencyById, mockActivityLog } from '@/data/mockData'
+import { useAdminData } from '@/context/AdminContext'
+import { supabase } from '@/lib/supabase'
+import { dbUserToUser, dbClientToClient } from '@/lib/converters'
+import type { User, Client } from '@/types'
 import {
   Shield,
   LogOut,
@@ -15,6 +18,7 @@ import {
   Mail,
   Calendar,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react'
 import type { AgencyStatus } from '@/types'
 
@@ -23,12 +27,58 @@ export function AgencyDetailPage() {
   const navigate = useNavigate()
   const admin = useAdmin()
   const { logout } = useAuth()
+  const { getAgencyById, getActivityForAgency, updateAgencyStatus, isLoading } = useAdminData()
   const [activeTab, setActiveTab] = useState<'overview' | 'carers' | 'clients' | 'activity'>(
     'overview'
   )
+  const [carers, setCarers] = useState<User[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [tabLoading, setTabLoading] = useState(false)
 
   const agency = getAgencyById(id || '')
-  const agencyActivity = mockActivityLog.filter((log) => log.agencyId === id).slice(0, 10)
+  const agencyActivity = getActivityForAgency(id || '').slice(0, 10)
+
+  // Fetch carers/clients when switching to those tabs
+  useEffect(() => {
+    if (!id) return
+
+    if (activeTab === 'carers') {
+      setTabLoading(true)
+      supabase
+        .from('users')
+        .select('*')
+        .eq('agency_id', id)
+        .eq('role', 'carer')
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          if (data) {
+            setCarers(data.map(dbUserToUser))
+          }
+          setTabLoading(false)
+        })
+    } else if (activeTab === 'clients') {
+      setTabLoading(true)
+      supabase
+        .from('clients')
+        .select('*')
+        .eq('agency_id', id)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          if (data) {
+            setClients(data.map(dbClientToClient))
+          }
+          setTabLoading(false)
+        })
+    }
+  }, [activeTab, id])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      </div>
+    )
+  }
 
   if (!agency) {
     return (
@@ -74,6 +124,11 @@ export function AgencyDetailPage() {
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
+  }
+
+  const handleStatusChange = async () => {
+    const newStatus: AgencyStatus = agency.status === 'active' ? 'suspended' : 'active'
+    await updateAgencyStatus(agency.id, newStatus)
   }
 
   return (
@@ -179,6 +234,7 @@ export function AgencyDetailPage() {
                 variant="secondary"
                 size="sm"
                 className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border-amber-600/30"
+                onClick={handleStatusChange}
               >
                 Change Status
               </Button>
@@ -377,11 +433,81 @@ export function AgencyDetailPage() {
           </Card>
         )}
 
-        {(activeTab === 'carers' || activeTab === 'clients') && (
+        {activeTab === 'carers' && (
           <Card className="bg-slate-800 border-slate-700 p-6">
-            <p className="text-slate-400 text-center py-8">
-              Detailed {activeTab} list will be available when connected to the database.
-            </p>
+            <h3 className="text-lg font-semibold text-white mb-4">Carers</h3>
+            {tabLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+              </div>
+            ) : carers.length > 0 ? (
+              <div className="space-y-3">
+                {carers.map((carer) => (
+                  <div
+                    key={carer.id}
+                    className="flex items-center justify-between py-3 border-b border-slate-700 last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{carer.fullName}</p>
+                        <p className="text-xs text-slate-400">{carer.email}</p>
+                      </div>
+                    </div>
+                    <Badge variant={carer.status === 'active' ? 'success' : 'secondary'}>
+                      {carer.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-8">
+                No carers found for this agency.
+              </p>
+            )}
+          </Card>
+        )}
+
+        {activeTab === 'clients' && (
+          <Card className="bg-slate-800 border-slate-700 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Clients</h3>
+            {tabLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+              </div>
+            ) : clients.length > 0 ? (
+              <div className="space-y-3">
+                {clients.map((client) => (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between py-3 border-b border-slate-700 last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <UserCheck className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{client.displayName}</p>
+                        {client.internalReference && (
+                          <p className="text-xs text-slate-400">
+                            Ref: {client.internalReference}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={client.status === 'active' ? 'success' : 'secondary'}>
+                      {client.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-8">
+                No clients found for this agency.
+              </p>
+            )}
           </Card>
         )}
       </main>

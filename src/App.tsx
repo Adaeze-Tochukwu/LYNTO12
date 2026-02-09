@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { AppProvider } from '@/context/AppContext'
+import { AdminProvider } from '@/context/AdminContext'
 
 // Auth pages
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -99,6 +100,15 @@ function AdminAuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Admin route wrapper that includes AdminProvider
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute allowedRole="admin">
+      <AdminProvider>{children}</AdminProvider>
+    </ProtectedRoute>
+  )
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -135,41 +145,41 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRole="admin">
+          <AdminRoute>
             <AdminDashboard />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/admin/agencies"
         element={
-          <ProtectedRoute allowedRole="admin">
+          <AdminRoute>
             <AgenciesPage />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/admin/agencies/:id"
         element={
-          <ProtectedRoute allowedRole="admin">
+          <AdminRoute>
             <AgencyDetailPage />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/admin/admins"
         element={
-          <ProtectedRoute allowedRole="admin">
+          <AdminRoute>
             <AdminsPage />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/admin/activity"
         element={
-          <ProtectedRoute allowedRole="admin">
+          <AdminRoute>
             <ActivityLogPage />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
 

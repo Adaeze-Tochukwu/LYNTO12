@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, Input } from '@/components/ui'
 import { useAdmin, useAuth } from '@/context/AuthContext'
-import { mockActivityLog, mockAllAgencies } from '@/data/mockData'
+import { useAdminData } from '@/context/AdminContext'
 import {
   Shield,
   LogOut,
@@ -15,17 +15,19 @@ import {
   UserMinus,
   LogIn,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import type { ActivityEventType } from '@/types'
 
 export function ActivityLogPage() {
   const admin = useAdmin()
   const { logout } = useAuth()
+  const { activityLog, agencies, isLoading } = useAdminData()
   const [searchTerm, setSearchTerm] = useState('')
   const [eventFilter, setEventFilter] = useState<ActivityEventType | 'all'>('all')
   const [agencyFilter, setAgencyFilter] = useState<string>('all')
 
-  const filteredLogs = mockActivityLog.filter((log) => {
+  const filteredLogs = activityLog.filter((log) => {
     const matchesSearch =
       log.performedByName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (log.entityName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
@@ -200,7 +202,7 @@ export function ActivityLogPage() {
               className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Agencies</option>
-              {mockAllAgencies.map((agency) => (
+              {agencies.map((agency) => (
                 <option key={agency.id} value={agency.id}>
                   {agency.name}
                 </option>
@@ -209,60 +211,66 @@ export function ActivityLogPage() {
           </div>
         </Card>
 
-        {/* Activity List */}
-        <Card className="bg-slate-800 border-slate-700 p-4">
-          {filteredLogs.length > 0 ? (
-            <div className="space-y-1">
-              {filteredLogs.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-4 py-4 border-b border-slate-700 last:border-0"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
-                    {getEventIcon(entry.eventType)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm text-white">
-                          <span className="font-medium">
-                            {formatEventType(entry.eventType)}
-                          </span>
-                          {entry.agencyName && (
-                            <span className="text-slate-400">
-                              {' '}
-                              - {entry.agencyName}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        ) : (
+          /* Activity List */
+          <Card className="bg-slate-800 border-slate-700 p-4">
+            {filteredLogs.length > 0 ? (
+              <div className="space-y-1">
+                {filteredLogs.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-start gap-4 py-4 border-b border-slate-700 last:border-0"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+                      {getEventIcon(entry.eventType)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-white">
+                            <span className="font-medium">
+                              {formatEventType(entry.eventType)}
                             </span>
-                          )}
-                          {entry.entityName && (
-                            <span className="text-slate-400">
-                              : {entry.entityName}
-                            </span>
-                          )}
-                        </p>
-                        {entry.reason && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Reason: {entry.reason}
+                            {entry.agencyName && (
+                              <span className="text-slate-400">
+                                {' '}
+                                - {entry.agencyName}
+                              </span>
+                            )}
+                            {entry.entityName && (
+                              <span className="text-slate-400">
+                                : {entry.entityName}
+                              </span>
+                            )}
                           </p>
-                        )}
-                        <p className="text-xs text-slate-500 mt-1">
-                          Performed by {entry.performedByName}
-                        </p>
+                          {entry.reason && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Reason: {entry.reason}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-500 mt-1">
+                            Performed by {entry.performedByName}
+                          </p>
+                        </div>
+                        <span className="text-xs text-slate-500 whitespace-nowrap">
+                          {formatDate(entry.timestamp)}
+                        </span>
                       </div>
-                      <span className="text-xs text-slate-500 whitespace-nowrap">
-                        {formatDate(entry.timestamp)}
-                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-400 text-center py-8">
-              No activity found matching your filters.
-            </p>
-          )}
-        </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-8">
+                No activity found matching your filters.
+              </p>
+            )}
+          </Card>
+        )}
       </main>
     </div>
   )
