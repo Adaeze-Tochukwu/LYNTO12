@@ -4,11 +4,11 @@ import { MobileLayout, Header, BottomNav } from '@/components/layout'
 import { Card, Button, Input, Badge, Modal } from '@/components/ui'
 import { useApp } from '@/context/AppContext'
 import { cn } from '@/lib/utils'
-import { Plus, Search, User, ArrowRight, UserX, Mail } from 'lucide-react'
+import { Plus, Search, User, ArrowRight, UserX, Mail, Send } from 'lucide-react'
 
 export function CarersPage() {
   const navigate = useNavigate()
-  const { carers, addCarer } = useApp()
+  const { carers, addCarer, resendInvite } = useApp()
   const [searchQuery, setSearchQuery] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -31,6 +31,8 @@ export function CarersPage() {
   const totalCount = carers.length
 
   const [addingCarer, setAddingCarer] = useState(false)
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [resentId, setResentId] = useState<string | null>(null)
 
   const handleAddCarer = async () => {
     if (!newCarerName.trim() || !newCarerEmail.trim()) return
@@ -144,46 +146,73 @@ export function CarersPage() {
             </Card>
           ) : (
             filteredCarers.map((carer) => (
-              <Card
-                key={carer.id}
-                padding="md"
-                interactive
-                onClick={() => navigate(`/manager/carers/${carer.id}`)}
-                className="flex items-center gap-4"
-              >
-                <div
-                  className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
-                    carer.status === 'active' ? 'bg-primary-50' : 'bg-slate-100'
-                  )}
+              <div key={carer.id} className="space-y-2">
+                <Card
+                  padding="md"
+                  interactive
+                  onClick={() => navigate(`/manager/carers/${carer.id}`)}
+                  className="flex items-center gap-4"
                 >
-                  {carer.status === 'inactive' ? (
-                    <UserX className="w-6 h-6 text-slate-400" />
-                  ) : (
-                    <User
-                      className={cn(
-                        'w-6 h-6',
-                        carer.status === 'active'
-                          ? 'text-primary-500'
-                          : 'text-risk-amber'
-                      )}
-                    />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-800 truncate">
-                      {carer.fullName}
-                    </p>
-                    {getStatusBadge(carer.status)}
+                  <div
+                    className={cn(
+                      'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
+                      carer.status === 'active' ? 'bg-primary-50' : 'bg-slate-100'
+                    )}
+                  >
+                    {carer.status === 'inactive' ? (
+                      <UserX className="w-6 h-6 text-slate-400" />
+                    ) : (
+                      <User
+                        className={cn(
+                          'w-6 h-6',
+                          carer.status === 'active'
+                            ? 'text-primary-500'
+                            : 'text-risk-amber'
+                        )}
+                      />
+                    )}
                   </div>
-                  <p className="text-sm text-slate-500 truncate">{carer.email}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {carer.assignedClientIds.length} client(s) assigned
-                  </p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0" />
-              </Card>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-slate-800 truncate">
+                        {carer.fullName}
+                      </p>
+                      {getStatusBadge(carer.status)}
+                    </div>
+                    <p className="text-sm text-slate-500 truncate">{carer.email}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {carer.assignedClientIds.length} client(s) assigned
+                    </p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0" />
+                </Card>
+                {carer.status === 'pending' && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      setResendingId(carer.id)
+                      try {
+                        await resendInvite(carer.email)
+                        setResentId(carer.id)
+                        setTimeout(() => setResentId(null), 3000)
+                      } catch (err) {
+                        console.error('Failed to resend invite:', err)
+                      } finally {
+                        setResendingId(null)
+                      }
+                    }}
+                    disabled={resendingId === carer.id}
+                    className="flex items-center justify-center gap-2 w-full py-2 text-sm font-medium text-primary-500 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    {resendingId === carer.id
+                      ? 'Sending...'
+                      : resentId === carer.id
+                        ? 'Invite Resent!'
+                        : 'Resend Invite Link'}
+                  </button>
+                )}
+              </div>
             ))
           )}
         </div>
