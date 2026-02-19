@@ -52,10 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: profileData, error: profileError } = await supabase.rpc('get_my_profile')
 
       if (profileError) {
-        console.error('Error loading profile:', profileError)
+        console.error('Error loading profile:', profileError.message, profileError.details, profileError.hint)
         setIsLoading(false)
         return
       }
+
+      console.log('Profile loaded:', profileData)
 
       if (profileData?.type === 'admin') {
         const adminProfile = profileData.profile as DbPlatformAdmin
@@ -106,14 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile])
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       console.error('Login error:', error.message)
       return false
     }
-    // Profile will be loaded by onAuthStateChange
+    console.log('Login successful, user ID:', data.user?.id)
+
+    // Explicitly load profile instead of waiting for onAuthStateChange
+    const { data: session } = await supabase.auth.getSession()
+    await loadProfile(session.session)
     return true
-  }, [])
+  }, [loadProfile])
 
   const adminLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -176,21 +182,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Call RPC to create agency + user record
-      const { error: rpcError } = await supabase.rpc('register_agency', {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('register_agency', {
         p_agency_name: agencyName,
         p_full_name: fullName,
         p_email: email,
       })
 
       if (rpcError) {
-        console.error('Register agency error:', rpcError.message)
-        return false
+        console.error('Register agency error:', rpcError.message, rpcError.details, rpcError.hint)
+        throw new Error(rpcError.message)
       }
 
-      // Profile will be loaded by onAuthStateChange
+      console.log('Agency registered:', rpcData)
+
+      // Explicitly load profile
+      const { data: session } = await supabase.auth.getSession()
+      await loadProfile(session.session)
       return true
     },
-    []
+    [loadProfile]
   )
 
   const value: AuthContextType = {

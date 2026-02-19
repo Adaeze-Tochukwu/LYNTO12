@@ -62,8 +62,8 @@ export function RegisterPage() {
       if (success) {
         navigate('/manager')
       }
-    } catch {
-      setErrors({ form: 'Something went wrong. Please try again.' })
+    } catch (err) {
+      setErrors({ form: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
     } finally {
       setLoading(false)
     }
