@@ -54,6 +54,7 @@ interface AppContextType {
 
   // Carer actions
   addCarer: (fullName: string, email: string) => Promise<Carer>
+  resendInvite: (email: string) => Promise<void>
   deactivateCarer: (carerId: string, reason: CarerDeactivationReason) => Promise<void>
   getCarerById: (id: string) => Carer | undefined
   getActiveCarers: () => Carer[]
@@ -462,6 +463,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [agency, user]
   )
 
+  const resendInvite = useCallback(
+    async (email: string): Promise<void> => {
+      const freshClient = createFreshClient()
+      const { error } = await freshClient.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/set-password`,
+      })
+      if (error) throw error
+    },
+    []
+  )
+
   const deactivateCarer = useCallback(
     async (carerId: string, reason: CarerDeactivationReason): Promise<void> => {
       const { error } = await supabase
@@ -698,6 +710,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getClientById,
     getClientsForCarer,
     addCarer,
+    resendInvite,
     deactivateCarer,
     getCarerById,
     getActiveCarers,

@@ -5,7 +5,7 @@ import { Card, Button, Select, Badge, Modal } from '@/components/ui'
 import { useApp } from '@/context/AppContext'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { User, Users, Mail, Calendar, Settings, ArrowRight } from 'lucide-react'
+import { User, Users, Mail, Calendar, Settings, ArrowRight, Send } from 'lucide-react'
 import type { CarerDeactivationReason } from '@/types'
 
 const DEACTIVATION_REASONS = [
@@ -23,6 +23,7 @@ export function CarerDetailPage() {
     clients,
     deactivateCarer,
     assignCarerToClient,
+    resendInvite,
   } = useApp()
 
   const carer = id ? getCarerById(id) : undefined
@@ -31,6 +32,8 @@ export function CarerDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [deactivationReason, setDeactivationReason] = useState('')
   const [selectedClientId, setSelectedClientId] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
 
   if (!carer) {
     return (
@@ -147,6 +150,30 @@ export function CarerDetailPage() {
             </div>
           )}
         </Card>
+
+        {/* Resend Invite - only for pending carers */}
+        {carer.status === 'pending' && (
+          <Button
+            variant="outline"
+            fullWidth
+            loading={resending}
+            onClick={async () => {
+              setResending(true)
+              try {
+                await resendInvite(carer.email)
+                setResendSuccess(true)
+                setTimeout(() => setResendSuccess(false), 3000)
+              } catch (err) {
+                console.error('Failed to resend invite:', err)
+              } finally {
+                setResending(false)
+              }
+            }}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            {resendSuccess ? 'Invite Resent!' : 'Resend Invite Link'}
+          </Button>
+        )}
 
         {/* Assigned Clients */}
         <Card padding="md">

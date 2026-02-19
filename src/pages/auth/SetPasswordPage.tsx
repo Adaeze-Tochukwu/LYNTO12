@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MobileLayout } from '@/components/layout'
 import { Card, Button, Input } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
-import { Lock } from 'lucide-react'
+import { CheckCircle, Heart } from 'lucide-react'
 
 export function SetPasswordPage() {
   const navigate = useNavigate()
@@ -13,12 +13,26 @@ export function SetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
 
   // Handle the recovery token from the URL hash
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSessionReady(true)
+        if (session?.user?.email) {
+          setUserEmail(session.user.email)
+        }
+      }
+    })
+
+    // Also check if we already have a recovery session (e.g. from hash fragment)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSessionReady(true)
+        if (session.user?.email) {
+          setUserEmail(session.user.email)
+        }
       }
     })
 
@@ -54,21 +68,10 @@ export function SetPasswordPage() {
       // Activate the user profile
       await supabase.rpc('activate_user')
 
+      // Sign out so the user can log in fresh with their new password
+      await supabase.auth.signOut()
+
       setSuccess(true)
-
-      // Check what type of user this is and redirect
-      const { data: profileData } = await supabase.rpc('get_my_profile')
-
-      setTimeout(() => {
-        if (profileData?.type === 'admin') {
-          navigate('/admin')
-        } else if (profileData?.type === 'user') {
-          const role = profileData.profile?.role
-          navigate(role === 'manager' ? '/manager' : '/carer')
-        } else {
-          navigate('/login')
-        }
-      }, 2000)
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -81,10 +84,18 @@ export function SetPasswordPage() {
       <MobileLayout className="flex flex-col justify-center items-center">
         <div className="w-full max-w-sm animate-fade-in text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-green-100 mb-4">
-            <Lock className="w-8 h-8 text-green-600" />
+            <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-2xl font-bold text-slate-800 mb-2">Password Set!</h1>
-          <p className="text-slate-500">Your account is now active. Redirecting...</p>
+          <p className="text-slate-500 mb-1">Your account is now active.</p>
+          {userEmail && (
+            <p className="text-sm text-slate-400 mb-6">
+              Sign in with <span className="font-medium text-slate-600">{userEmail}</span>
+            </p>
+          )}
+          <Button fullWidth onClick={() => navigate('/login')}>
+            Go to Sign In
+          </Button>
         </div>
       </MobileLayout>
     )
@@ -95,10 +106,13 @@ export function SetPasswordPage() {
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-500 mb-4">
-            <Lock className="w-8 h-8 text-white" />
+            <Heart className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Set Your Password</h1>
-          <p className="text-slate-500 mt-1">Choose a password to activate your account</p>
+          <h1 className="text-2xl font-bold text-slate-800">Welcome to Lynto</h1>
+          <p className="text-slate-500 mt-1">Set a password to activate your account</p>
+          {userEmail && (
+            <p className="text-sm text-slate-400 mt-2">{userEmail}</p>
+          )}
         </div>
 
         {!sessionReady ? (
