@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MobileLayout, Header, BottomNav } from '@/components/layout'
 import { Card, Button, Input, Badge, Modal } from '@/components/ui'
 import { useApp } from '@/context/AppContext'
-import { isCompanyEmail, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { Plus, Search, User, ArrowRight, UserX, Mail } from 'lucide-react'
 
 export function CarersPage() {
@@ -34,11 +34,6 @@ export function CarersPage() {
 
   const handleAddCarer = async () => {
     if (!newCarerName.trim() || !newCarerEmail.trim()) return
-
-    if (!isCompanyEmail(newCarerEmail)) {
-      setEmailError('Please use a company email address')
-      return
-    }
 
     setAddingCarer(true)
     try {
@@ -233,9 +228,8 @@ export function CarersPage() {
                 setNewCarerEmail(e.target.value)
                 setEmailError('')
               }}
-              placeholder="carer@yourcompany.co.uk"
+              placeholder="carer@example.com"
               error={emailError}
-              hint="Must be a company email address"
             />
             <div className="flex gap-3 pt-2">
               <Button
