@@ -6,11 +6,13 @@ import { useAuth } from '@/context/AuthContext'
 import { Heart } from 'lucide-react'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, forgotPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,11 +24,27 @@ export function LoginPage() {
       if (!success) {
         setError('Invalid email or password. Please try again.')
       }
-      // On success, AuthRoute will automatically redirect based on role
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Please enter your email address first.')
+      return
+    }
+    setResetLoading(true)
+    setError('')
+    try {
+      await forgotPassword(email.trim())
+      setResetSent(true)
+    } catch {
+      setError('Failed to send reset email. Please try again.')
+    } finally {
+      setResetLoading(false)
     }
   }
 
@@ -43,37 +61,62 @@ export function LoginPage() {
         </div>
 
         <Card padding="lg">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <h2 className="text-xl font-semibold text-center mb-6">Sign In</h2>
+          {resetSent ? (
+            <div className="text-center py-4">
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">Check Your Email</h3>
+              <p className="text-sm text-slate-500 mb-4">
+                A password reset link has been sent to {email}
+              </p>
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() => setResetSent(false)}
+              >
+                Back to Sign In
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <h2 className="text-xl font-semibold text-center mb-6">Sign In</h2>
 
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your.email@company.co.uk"
-              required
-              autoComplete="email"
-            />
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com"
+                required
+                autoComplete="email"
+              />
 
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              autoComplete="current-password"
-            />
+              <Input
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                autoComplete="current-password"
+              />
 
-            {error && (
-              <p className="text-sm text-risk-red text-center">{error}</p>
-            )}
+              {error && (
+                <p className="text-sm text-risk-red text-center">{error}</p>
+              )}
 
-            <Button type="submit" fullWidth loading={loading}>
-              Sign In
-            </Button>
-          </form>
+              <Button type="submit" fullWidth loading={loading}>
+                Sign In
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={resetLoading}
+                className="w-full text-sm text-primary-500 hover:text-primary-600 hover:underline"
+              >
+                {resetLoading ? 'Sending...' : 'Forgot your password?'}
+              </button>
+            </form>
+          )}
         </Card>
 
         <div className="text-center mt-6">

@@ -26,6 +26,7 @@ interface AuthContextType {
   adminLogin: (email: string, password: string) => Promise<boolean>
   logout: () => void
   registerAgency: (agencyName: string, fullName: string, email: string, password: string) => Promise<boolean>
+  forgotPassword: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -203,6 +204,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfile]
   )
 
+  const forgotPassword = useCallback(async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/set-password`,
+    })
+    if (error) throw error
+  }, [])
+
   const value: AuthContextType = {
     user,
     admin,
@@ -217,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adminLogin,
     logout,
     registerAgency,
+    forgotPassword,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
