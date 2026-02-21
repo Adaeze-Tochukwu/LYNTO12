@@ -3,10 +3,11 @@
 export interface DbAgency {
   id: string
   name: string
-  status: 'active' | 'inactive' | 'suspended' | 'pending'
+  status: 'active' | 'inactive' | 'suspended' | 'pending' | 'rejected'
   contact_email: string | null
   contact_name: string | null
   notes: string | null
+  rejection_reason: string | null
   created_at: string
   updated_at: string
 }
@@ -112,10 +113,11 @@ export interface DbActivityLog {
 export interface DbAgencyStats {
   id: string
   name: string
-  status: 'active' | 'inactive' | 'suspended' | 'pending'
+  status: 'active' | 'inactive' | 'suspended' | 'pending' | 'rejected'
   contact_email: string | null
   contact_name: string | null
   notes: string | null
+  rejection_reason: string | null
   created_at: string
   updated_at: string
   manager_id: string | null

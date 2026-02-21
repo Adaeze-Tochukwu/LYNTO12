@@ -15,6 +15,8 @@ import {
   Mail,
   Calendar,
   AlertTriangle,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
 import type { AgencyStatus, Carer, Client } from '@/types'
 
@@ -29,6 +31,8 @@ export function AgencyDetailPage() {
     getCarersForAgency,
     getClientsForAgency,
     updateAgencyStatus,
+    approveAgency,
+    rejectAgency,
     isLoading,
   } = useAdminData()
   const [activeTab, setActiveTab] = useState<'overview' | 'carers' | 'clients' | 'activity'>(
@@ -42,6 +46,9 @@ export function AgencyDetailPage() {
   const [newStatus, setNewStatus] = useState<AgencyStatus>('active')
   const [statusNotes, setStatusNotes] = useState('')
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [approving, setApproving] = useState(false)
 
   const agency = getAgencyById(id || '')
   const agencyActivity = id ? getActivityForAgency(id).slice(0, 10) : []
@@ -113,8 +120,36 @@ export function AgencyDetailPage() {
         return <Badge variant="warning">Suspended</Badge>
       case 'pending':
         return <Badge variant="info">Pending</Badge>
+      case 'rejected':
+        return <Badge variant="danger">Rejected</Badge>
       default:
         return <Badge>{status}</Badge>
+    }
+  }
+
+  const handleApprove = async () => {
+    if (!id) return
+    setApproving(true)
+    try {
+      await approveAgency(id)
+    } catch (err) {
+      console.error('Failed to approve agency:', err)
+    } finally {
+      setApproving(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!id || !rejectReason.trim()) return
+    setUpdatingStatus(true)
+    try {
+      await rejectAgency(id, rejectReason.trim())
+      setShowRejectModal(false)
+      setRejectReason('')
+    } catch (err) {
+      console.error('Failed to reject agency:', err)
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -237,6 +272,39 @@ export function AgencyDetailPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              {agency.status === 'pending' && (
+                <>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleApprove}
+                    loading={approving}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1.5" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-600/30"
+                    onClick={() => setShowRejectModal(true)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1.5" />
+                    Reject
+                  </Button>
+                </>
+              )}
+              {agency.status === 'rejected' && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleApprove}
+                  loading={approving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Approve
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -250,6 +318,15 @@ export function AgencyDetailPage() {
               </Button>
             </div>
           </div>
+
+          {agency.status === 'rejected' && agency.rejectionReason && (
+            <div className="mt-4 p-3 bg-red-900/20 border border-red-800/30 rounded-lg">
+              <p className="text-sm text-red-400">
+                <span className="font-medium text-red-300">Rejection Reason:</span>{' '}
+                {agency.rejectionReason}
+              </p>
+            </div>
+          )}
 
           {agency.notes && (
             <div className="mt-4 p-3 bg-slate-900/50 rounded-lg">
@@ -532,6 +609,46 @@ export function AgencyDetailPage() {
           </Card>
         )}
 
+        {/* Reject Agency Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="bg-slate-800 border-slate-700 p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-white mb-2">Reject Agency</h3>
+              <p className="text-sm text-slate-400 mb-4">
+                Please provide a reason for rejecting <span className="font-medium text-white">{agency.name}</span>.
+                This will be shown to the manager.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Reason for rejection..."
+                rows={3}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-slate-400 resize-none mb-4"
+              />
+              <div className="flex justify-end gap-3">
+                <Button
+                  onClick={() => {
+                    setShowRejectModal(false)
+                    setRejectReason('')
+                  }}
+                  variant="secondary"
+                  className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  disabled={!rejectReason.trim()}
+                  className="bg-red-600 hover:bg-red-700"
+                  loading={updatingStatus}
+                >
+                  Reject Agency
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Change Status Modal */}
         {showStatusModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -551,6 +668,7 @@ export function AgencyDetailPage() {
                     <option value="inactive">Inactive</option>
                     <option value="suspended">Suspended</option>
                     <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
                   </select>
                 </div>
                 <div>

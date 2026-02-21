@@ -52,6 +52,7 @@ export function dbAgencyStatsToAgencyWithStats(row: DbAgencyStats): AgencyWithSt
     unreviewedAlerts: Number(row.unreviewed_alerts) || 0,
     lastActivityAt: row.last_activity_at || undefined,
     notes: row.notes || undefined,
+    rejectionReason: row.rejection_reason || undefined,
   }
 }
 

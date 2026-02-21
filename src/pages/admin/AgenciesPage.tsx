@@ -11,15 +11,23 @@ import {
   Users,
   UserCheck,
   ChevronRight,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from 'lucide-react'
 import type { AgencyStatus } from '@/types'
 
 export function AgenciesPage() {
   const admin = useAdmin()
   const { logout } = useAuth()
-  const { agencies, isLoading } = useAdminData()
+  const { agencies, isLoading, approveAgency, rejectAgency } = useAdminData()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<AgencyStatus | 'all'>('all')
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const pendingCount = agencies.filter((a) => a.status === 'pending').length
 
   const filteredAgencies = agencies.filter((agency) => {
     const matchesSearch =
@@ -39,8 +47,39 @@ export function AgenciesPage() {
         return <Badge variant="warning">Suspended</Badge>
       case 'pending':
         return <Badge variant="info">Pending</Badge>
+      case 'rejected':
+        return <Badge variant="danger">Rejected</Badge>
       default:
         return <Badge>{status}</Badge>
+    }
+  }
+
+  const handleApprove = async (e: React.MouseEvent, agencyId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setActionLoading(agencyId)
+    try {
+      await approveAgency(agencyId)
+    } catch (err) {
+      console.error('Failed to approve agency:', err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleRejectSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!rejectingId || !rejectReason.trim()) return
+    setActionLoading(rejectingId)
+    try {
+      await rejectAgency(rejectingId, rejectReason.trim())
+      setRejectingId(null)
+      setRejectReason('')
+    } catch (err) {
+      console.error('Failed to reject agency:', err)
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -120,9 +159,17 @@ export function AgenciesPage() {
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">
-            Agencies ({filteredAgencies.length})
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-white">
+              Agencies ({filteredAgencies.length})
+            </h2>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium">
+                <Clock className="w-3.5 h-3.5" />
+                {pendingCount} Pending Approval
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -147,6 +194,7 @@ export function AgenciesPage() {
             <option value="inactive">Inactive</option>
             <option value="suspended">Suspended</option>
             <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
 
@@ -199,6 +247,30 @@ export function AgenciesPage() {
                       </span>
                       <p className="text-xs text-slate-500">Unreviewed</p>
                     </div>
+                    {agency.status === 'pending' && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => handleApprove(e, agency.id)}
+                          disabled={actionLoading === agency.id}
+                          className="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition-colors disabled:opacity-50"
+                          title="Approve"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setRejectingId(agency.id)
+                          }}
+                          disabled={actionLoading === agency.id}
+                          className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                          title="Reject"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
                     <ChevronRight className="w-5 h-5 text-slate-500" />
                   </div>
                 </div>
@@ -213,6 +285,43 @@ export function AgenciesPage() {
           )}
         </div>
       </main>
+
+      {/* Reject Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="bg-slate-800 border-slate-700 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Reject Agency</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              Please provide a reason for rejecting this agency. This will be shown to the manager.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection..."
+              rows={3}
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-slate-400 resize-none mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setRejectingId(null)
+                  setRejectReason('')
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={!rejectReason.trim() || !!actionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Rejecting...' : 'Reject Agency'}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

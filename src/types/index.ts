@@ -156,7 +156,7 @@ export interface PlatformAdmin {
 }
 
 // Agency status for admin view
-export type AgencyStatus = 'active' | 'inactive' | 'suspended' | 'pending'
+export type AgencyStatus = 'active' | 'inactive' | 'suspended' | 'pending' | 'rejected'
 
 // Extended Agency for admin view
 export interface AgencyWithStats extends Agency {
@@ -171,6 +171,7 @@ export interface AgencyWithStats extends Agency {
   unreviewedAlerts: number
   lastActivityAt?: string
   notes?: string
+  rejectionReason?: string
 }
 
 // Activity log types

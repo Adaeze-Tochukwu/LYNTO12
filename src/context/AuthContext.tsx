@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import type { User, Manager, Carer, Agency, PlatformAdmin } from '@/types'
+import type { User, Manager, Carer, Agency, AgencyStatus, PlatformAdmin } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { dbUserToUser, dbPlatformAdminToPlatformAdmin } from '@/lib/converters'
 import type { DbUser, DbPlatformAdmin, DbAgency } from '@/lib/database.types'
@@ -16,6 +16,8 @@ interface AuthContextType {
   user: User | null
   admin: PlatformAdmin | null
   agency: Agency | null
+  agencyStatus: AgencyStatus | null
+  rejectionReason: string | null
   isAuthenticated: boolean
   isManager: boolean
   isCarer: boolean
@@ -35,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [admin, setAdmin] = useState<PlatformAdmin | null>(null)
   const [agency, setAgency] = useState<Agency | null>(null)
+  const [agencyStatus, setAgencyStatus] = useState<AgencyStatus | null>(null)
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   // Load user profile from DB based on auth session
@@ -43,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       setAdmin(null)
       setAgency(null)
+      setAgencyStatus(null)
+      setRejectionReason(null)
       setIsLoading(false)
       return
     }
@@ -65,9 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAdmin(dbPlatformAdminToPlatformAdmin(adminProfile))
         setUser(null)
         setAgency(null)
+        setAgencyStatus(null)
+        setRejectionReason(null)
       } else if (profileData?.type === 'user') {
         const userProfile = profileData.profile as DbUser
-        const agencyData = profileData.agency as DbAgency | null
+        const agencyData = profileData.agency as (DbAgency & { rejection_reason?: string }) | null
 
         setUser(dbUserToUser(userProfile))
         setAdmin(null)
@@ -79,12 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             createdAt: agencyData.created_at,
             managerId: userProfile.role === 'manager' ? userProfile.id : '',
           })
+          setAgencyStatus(agencyData.status)
+          setRejectionReason(agencyData.rejection_reason || null)
         }
       } else {
         // No profile found - could be a new user who hasn't completed registration
         setUser(null)
         setAdmin(null)
         setAgency(null)
+        setAgencyStatus(null)
+        setRejectionReason(null)
       }
     } catch (err) {
       console.error('Error loading profile:', err)
@@ -167,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setAdmin(null)
     setAgency(null)
+    setAgencyStatus(null)
+    setRejectionReason(null)
   }, [admin])
 
   const registerAgency = useCallback(
@@ -215,6 +229,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     admin,
     agency,
+    agencyStatus,
+    rejectionReason,
     isAuthenticated: !!user || !!admin,
     isManager: user?.role === 'manager',
     isCarer: user?.role === 'carer',

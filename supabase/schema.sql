@@ -13,7 +13,7 @@ create extension if not exists "uuid-ossp";
 create type user_role as enum ('manager', 'carer');
 create type user_status as enum ('active', 'inactive', 'pending', 'suspended');
 create type admin_role as enum ('primary_admin', 'admin', 'readonly_admin');
-create type agency_status as enum ('active', 'inactive', 'suspended', 'pending');
+create type agency_status as enum ('active', 'inactive', 'suspended', 'pending', 'rejected');
 create type client_status as enum ('active', 'inactive');
 create type risk_level as enum ('green', 'amber', 'red');
 create type alert_action as enum ('monitor', 'called_family', 'informed_gp', 'community_nurse', 'emergency_escalation');
@@ -39,6 +39,7 @@ create table agencies (
   contact_email text,
   contact_name text,
   notes text,
+  rejection_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -229,6 +230,7 @@ select
   a.contact_email,
   a.contact_name,
   a.notes,
+  a.rejection_reason,
   a.created_at,
   a.updated_at,
   (select u.id from users u where u.agency_id = a.id and u.role = 'manager' limit 1) as manager_id,
@@ -267,14 +269,14 @@ begin
     raise exception 'User already registered';
   end if;
 
-  -- Create the agency
+  -- Create the agency (pending until admin approves)
   insert into agencies (name, status, contact_email, contact_name)
-  values (p_agency_name, 'active', p_email, p_full_name)
+  values (p_agency_name, 'pending', p_email, p_full_name)
   returning id into v_agency_id;
 
-  -- Create the manager user
+  -- Create the manager user (pending until agency is approved)
   insert into users (id, email, full_name, role, status, agency_id)
-  values (v_user_id, p_email, p_full_name, 'manager', 'active', v_agency_id);
+  values (v_user_id, p_email, p_full_name, 'manager', 'pending', v_agency_id);
 
   -- Log activity
   insert into activity_log (event_type, agency_id, agency_name, entity_id, entity_name, performed_by, performed_by_name)
@@ -358,6 +360,7 @@ begin
       'id', a.id,
       'name', a.name,
       'status', a.status,
+      'rejection_reason', a.rejection_reason,
       'created_at', a.created_at
     ) into v_agency_row
     from agencies a
@@ -369,6 +372,79 @@ begin
 
   -- No profile found (new user, needs registration)
   return json_build_object('type', 'none');
+end;
+$$ language plpgsql security definer;
+
+-- Approve a pending agency (admin only)
+create or replace function approve_agency(p_agency_id uuid)
+returns json as $$
+declare
+  v_admin_id uuid;
+  v_admin_name text;
+  v_agency_name text;
+begin
+  v_admin_id := auth.uid();
+
+  -- Verify caller is a platform admin
+  if not is_platform_admin(v_admin_id) then
+    raise exception 'Only platform admins can approve agencies';
+  end if;
+
+  -- Get admin name
+  select full_name into v_admin_name from platform_admins where id = v_admin_id;
+
+  -- Get agency name and verify it's pending
+  select name into v_agency_name from agencies where id = p_agency_id and status = 'pending';
+  if v_agency_name is null then
+    raise exception 'Agency not found or not in pending status';
+  end if;
+
+  -- Activate the agency
+  update agencies set status = 'active', rejection_reason = null where id = p_agency_id;
+
+  -- Activate the manager user
+  update users set status = 'active' where agency_id = p_agency_id and role = 'manager' and status = 'pending';
+
+  -- Log activity
+  insert into activity_log (event_type, agency_id, agency_name, entity_id, entity_name, performed_by, performed_by_name, reason)
+  values ('agency_status_changed', p_agency_id, v_agency_name, p_agency_id, v_agency_name, v_admin_id, v_admin_name, 'Agency approved');
+
+  return json_build_object('approved', true);
+end;
+$$ language plpgsql security definer;
+
+-- Reject a pending agency (admin only)
+create or replace function reject_agency(p_agency_id uuid, p_reason text)
+returns json as $$
+declare
+  v_admin_id uuid;
+  v_admin_name text;
+  v_agency_name text;
+begin
+  v_admin_id := auth.uid();
+
+  -- Verify caller is a platform admin
+  if not is_platform_admin(v_admin_id) then
+    raise exception 'Only platform admins can reject agencies';
+  end if;
+
+  -- Get admin name
+  select full_name into v_admin_name from platform_admins where id = v_admin_id;
+
+  -- Get agency name and verify it's pending
+  select name into v_agency_name from agencies where id = p_agency_id and (status = 'pending' or status = 'rejected');
+  if v_agency_name is null then
+    raise exception 'Agency not found or not in pending/rejected status';
+  end if;
+
+  -- Reject the agency
+  update agencies set status = 'rejected', rejection_reason = p_reason where id = p_agency_id;
+
+  -- Log activity
+  insert into activity_log (event_type, agency_id, agency_name, entity_id, entity_name, performed_by, performed_by_name, reason)
+  values ('agency_status_changed', p_agency_id, v_agency_name, p_agency_id, v_agency_name, v_admin_id, v_admin_name, 'Agency rejected: ' || coalesce(p_reason, 'No reason provided'));
+
+  return json_build_object('rejected', true);
 end;
 $$ language plpgsql security definer;
 

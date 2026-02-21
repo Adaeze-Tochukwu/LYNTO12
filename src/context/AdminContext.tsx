@@ -43,6 +43,8 @@ interface AdminContextType {
   getActivityForAgency: (agencyId: string) => ActivityLogEntry[]
   getCarersForAgency: (agencyId: string) => Promise<Carer[]>
   getClientsForAgency: (agencyId: string) => Promise<Client[]>
+  approveAgency: (agencyId: string) => Promise<void>
+  rejectAgency: (agencyId: string, reason: string) => Promise<void>
   inviteAdmin: (email: string, fullName: string, adminRole: PlatformAdmin['adminRole']) => Promise<void>
   updateAdminStatus: (adminId: string, status: 'active' | 'inactive', reason?: string) => Promise<void>
 }
@@ -193,6 +195,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const approveAgency = useCallback(
+    async (agencyId: string): Promise<void> => {
+      const { error } = await supabase.rpc('approve_agency', { p_agency_id: agencyId })
+      if (error) throw error
+      await loadData()
+    },
+    [loadData]
+  )
+
+  const rejectAgency = useCallback(
+    async (agencyId: string, reason: string): Promise<void> => {
+      const { error } = await supabase.rpc('reject_agency', { p_agency_id: agencyId, p_reason: reason })
+      if (error) throw error
+      await loadData()
+    },
+    [loadData]
+  )
+
   const inviteAdmin = useCallback(
     async (email: string, fullName: string, adminRole: PlatformAdmin['adminRole']): Promise<void> => {
       // 1. Create auth user with random password
@@ -313,6 +333,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     getActivityForAgency,
     getCarersForAgency,
     getClientsForAgency,
+    approveAgency,
+    rejectAgency,
     inviteAdmin,
     updateAdminStatus,
   }

@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { AgencyPendingPage } from '@/pages/auth/AgencyPendingPage'
+import { AgencyRejectedPage } from '@/pages/auth/AgencyRejectedPage'
 import { AppProvider } from '@/context/AppContext'
 import { AdminProvider } from '@/context/AdminContext'
 
@@ -55,7 +57,7 @@ function ProtectedRoute({
   children: React.ReactNode
   allowedRole?: 'manager' | 'carer' | 'admin'
 }) {
-  const { isAuthenticated, isManager, isCarer, isAdmin, isLoading } = useAuth()
+  const { isAuthenticated, isManager, isCarer, isAdmin, isLoading, agencyStatus } = useAuth()
 
   if (isLoading) return <LoadingScreen />
 
@@ -64,6 +66,12 @@ function ProtectedRoute({
       return <Navigate to="/admin/login" replace />
     }
     return <Navigate to="/login" replace />
+  }
+
+  // For manager/carer routes, check agency status
+  if (allowedRole === 'manager' || allowedRole === 'carer') {
+    if (agencyStatus === 'pending') return <AgencyPendingPage />
+    if (agencyStatus === 'rejected') return <AgencyRejectedPage />
   }
 
   if (allowedRole === 'manager' && !isManager) {
