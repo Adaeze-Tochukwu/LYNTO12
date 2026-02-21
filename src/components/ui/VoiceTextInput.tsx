@@ -80,7 +80,7 @@ export function VoiceTextInput({
             'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
             'transition-all duration-200 resize-none',
             'disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed',
-            isSupported && 'pr-12',
+            'pr-12',
             error
               ? 'border-risk-red focus:ring-risk-red'
               : 'border-slate-200 hover:border-slate-300',
@@ -88,25 +88,26 @@ export function VoiceTextInput({
           )}
           {...props}
         />
-        {isSupported && (
-          <button
-            type="button"
-            onClick={toggleListening}
-            className={cn(
-              'absolute bottom-3 right-3 p-2 rounded-full transition-all duration-200',
-              isListening
+        <button
+          type="button"
+          onClick={isSupported ? toggleListening : undefined}
+          disabled={!isSupported}
+          className={cn(
+            'absolute bottom-3 right-3 p-2 rounded-full transition-all duration-200',
+            !isSupported
+              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+              : isListening
                 ? 'bg-red-100 text-red-600 animate-pulse'
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
-            )}
-            aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-          >
-            {isListening ? (
-              <MicOff className="w-4 h-4" />
-            ) : (
-              <Mic className="w-4 h-4" />
-            )}
-          </button>
-        )}
+          )}
+          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+        >
+          {isListening ? (
+            <MicOff className="w-4 h-4" />
+          ) : (
+            <Mic className="w-4 h-4" />
+          )}
+        </button>
       </div>
       <div className="flex justify-between items-center mt-1.5">
         <div>
