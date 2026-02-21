@@ -6,7 +6,7 @@ import {
   Button,
   Checkbox,
   Input,
-  TextArea,
+  VoiceTextInput,
   Progress,
   RiskAlert,
 } from '@/components/ui'
@@ -306,7 +306,7 @@ export function VisitEntryPage() {
             </p>
           </div>
 
-          <TextArea
+          <VoiceTextInput
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="e.g., Client quieter than usual, ate half lunch, mild cough."

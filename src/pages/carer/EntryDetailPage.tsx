@@ -4,7 +4,7 @@ import { MobileLayout, Header } from '@/components/layout'
 import {
   Card,
   Button,
-  TextArea,
+  VoiceTextInput,
   RiskAlert,
   Modal,
 } from '@/components/ui'
@@ -244,7 +244,7 @@ export function EntryDetailPage() {
             This note will be attached to the entry without modifying the original
             record. Use it to clarify or correct any observations.
           </p>
-          <TextArea
+          <VoiceTextInput
             value={correctionText}
             onChange={(e) => setCorrectionText(e.target.value)}
             placeholder="e.g., Earlier I ticked 'fall', but it was a near fall - no actual fall."
