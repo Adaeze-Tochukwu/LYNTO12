@@ -58,7 +58,7 @@ export function VoiceTextInput({ value = '', onChange, maxLength, ...props }: Vo
           type="button"
           onClick={toggleListening}
           className={cn(
-            'absolute bottom-10 right-3 p-2 rounded-full transition-all duration-200',
+            'absolute bottom-9 right-3 z-10 p-2 rounded-full transition-all duration-200',
             isListening
               ? 'bg-red-100 text-red-600 animate-pulse'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
